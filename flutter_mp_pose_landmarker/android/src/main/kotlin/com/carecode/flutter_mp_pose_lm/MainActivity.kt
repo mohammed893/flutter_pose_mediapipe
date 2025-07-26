@@ -1,0 +1,1 @@
+package com.carecode.flutter_mp_pose_landmarker_example
