@@ -54,6 +54,7 @@ class CameraManager(private val activity: Activity) : PoseLandmarkerHelper.Landm
         val cameraProviderFuture = ProcessCameraProvider.getInstance(activity)
         cameraProviderFuture.addListener({
             try {
+                
                 val cameraProvider = cameraProviderFuture.get()
 
                 // Create a resolution selector targeting 640x480 with 4:3 aspect ratio
@@ -113,15 +114,19 @@ class CameraManager(private val activity: Activity) : PoseLandmarkerHelper.Landm
     fun enableAnalysis() {
         isAnalysisEnabled = true
         imageAnalysis.setAnalyzer(executor) { imageProxy ->
-            try {
-                if (isAnalysisEnabled) {
-                    poseLandmarkerHelper.detectLiveStream(
-                        imageProxy,
-                        isFrontCamera = false
-                    )
-                }
-            } finally {
+            if (!isAnalysisEnabled) {
                 imageProxy.close()
+                return@setAnalyzer
+            }
+    
+            try {
+                poseLandmarkerHelper.detectLiveStream(
+                    imageProxy,
+                    isFrontCamera = false
+                )
+            } catch (e: Exception) {
+                Log.e("CameraManager", "Error during analysis", e)
+                imageProxy.close() // Only in case of crash
             }
         }
     }
