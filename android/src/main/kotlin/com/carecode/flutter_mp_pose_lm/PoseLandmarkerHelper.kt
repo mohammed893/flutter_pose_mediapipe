@@ -42,11 +42,14 @@ class PoseLandmarkerHelper(
     val context: Context,
     // this listener is only used when running in RunningMode.LIVE_STREAM
     val poseLandmarkerHelperListener: LandmarkerListener? = null
+
 ) {
 
     // For this example this needs to be a var so it can be reset on changes.
     // If the Pose Landmarker will not change, a lazy val would be preferable.
     private var poseLandmarker: PoseLandmarker? = null
+    private var bitmapBuffer: Bitmap? = null
+    private var rotatedBitmap: Bitmap? = null
 
     init {
         setupPoseLandmarker()
@@ -150,52 +153,39 @@ class PoseLandmarkerHelper(
     }
 
     // Convert the ImageProxy to MP Image and feed it to PoselandmakerHelper.
-    fun detectLiveStream(
-        imageProxy: ImageProxy,
-        isFrontCamera: Boolean
-    ) {
+    fun detectLiveStream(imageProxy: ImageProxy, isFrontCamera: Boolean) {
         if (runningMode != RunningMode.LIVE_STREAM) {
-            throw IllegalArgumentException(
-                "Attempting to call detectLiveStream" +
-                        " while not using RunningMode.LIVE_STREAM"
-            )
+            throw IllegalArgumentException("...")
         }
         val frameTime = SystemClock.uptimeMillis()
-
-        // Copy out RGB bits from the frame to a bitmap buffer
-        val bitmapBuffer =
-            Bitmap.createBitmap(
-                imageProxy.width,
-                imageProxy.height,
-                Bitmap.Config.ARGB_8888
-            )
-
+    
+        if (bitmapBuffer == null || bitmapBuffer?.width != imageProxy.width || bitmapBuffer?.height != imageProxy.height) {
+            bitmapBuffer = Bitmap.createBitmap(imageProxy.width, imageProxy.height, Bitmap.Config.ARGB_8888)
+        }
+    
+        val bitmap = bitmapBuffer!!
+    
         val yuvToRgbConverter = YuvToRgbConverter(context)
-        yuvToRgbConverter.yuvToRgb(imageProxy.image!!, bitmapBuffer)
+        yuvToRgbConverter.yuvToRgb(imageProxy.image!!, bitmap)
         imageProxy.close()
-
+    
         val matrix = Matrix().apply {
-            // Rotate the frame received from the camera to be in the same direction as it'll be shown
             postRotate(imageProxy.imageInfo.rotationDegrees.toFloat())
-
-            // flip image if user use front camera
             if (isFrontCamera) {
-                postScale(
-                    -1f,
-                    1f,
-                    imageProxy.width.toFloat(),
-                    imageProxy.height.toFloat()
-                )
+                postScale(-1f, 1f, imageProxy.width.toFloat(), imageProxy.height.toFloat())
             }
         }
-        val rotatedBitmap = Bitmap.createBitmap(
-            bitmapBuffer, 0, 0, bitmapBuffer.width, bitmapBuffer.height,
+    
+        if (rotatedBitmap == null || rotatedBitmap?.width != bitmap.width || rotatedBitmap?.height != bitmap.height) {
+            rotatedBitmap = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888)
+        }
+    
+        rotatedBitmap = Bitmap.createBitmap(
+            bitmap, 0, 0, bitmap.width, bitmap.height,
             matrix, true
         )
-
-        // Convert the input Bitmap object to an MPImage object to run inference
-        val mpImage = BitmapImageBuilder(rotatedBitmap).build()
-
+    
+        val mpImage = BitmapImageBuilder(rotatedBitmap!!).build()
         detectAsync(mpImage, frameTime)
     }
 
