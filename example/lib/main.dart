@@ -33,6 +33,7 @@ class _PoseLandmarkerViewState extends State<PoseLandmarkerView> {
   @override
   void initState() {
     super.initState();
+    PoseLandmarker.setConfig(delegate: 0 , model: 1);
     _poseSubscription = PoseLandmarker.poseLandmarkStream.listen((pose) {
       setState(() {
         _landmarks = pose.landmarks;
@@ -48,7 +49,12 @@ class _PoseLandmarkerViewState extends State<PoseLandmarkerView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return Scaffold(bottomNavigationBar: FloatingActionButton(
+  child: Icon(Icons.cameraswitch),
+  onPressed: () {
+    PoseLandmarker.switchCamera();
+  },
+),
       body: Stack(
         fit: StackFit.expand,
         children: [

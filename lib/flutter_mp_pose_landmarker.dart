@@ -54,8 +54,26 @@ class PoseLandmarker {
   // Remove method channel - no longer needed
   static const EventChannel _eventChannel =
       EventChannel('pose_landmarker/events');
+  static const MethodChannel _channel =
+      MethodChannel("pose_landmarker/methods");
 
   static Stream<PoseLandMarker>? _poseStream;
+
+
+  static Future<void> setConfig({
+    required int delegate, // 0 = CPU, 1 = GPU
+    required int model, // 0 = full, 1 = lite, 2 = heavy
+  }) async {
+    await _channel.invokeMethod("setConfig", {
+      "delegate": delegate,
+      "model": model,
+    });
+  }
+
+  static Future<void> switchCamera() async {
+  await _channel.invokeMethod('switchCamera');
+  
+  }
 
   /// Provides a broadcast stream of PoseLandMarker results
   static Stream<PoseLandMarker> get poseLandmarkStream {

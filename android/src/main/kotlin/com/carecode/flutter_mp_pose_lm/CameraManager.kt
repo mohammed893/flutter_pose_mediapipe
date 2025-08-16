@@ -38,24 +38,49 @@ class CameraManager(private val activity: Activity) : PoseLandmarkerHelper.Landm
         scaleType = PreviewView.ScaleType.FILL_CENTER
     }
 
+    private var currentLensFacing: Int = CameraSelector.LENS_FACING_BACK
     private val eventSink = AtomicReference<EventChannel.EventSink?>(null)
     private lateinit var imageAnalysis: ImageAnalysis
     private var isAnalysisEnabled = false
     private val executor = Executors.newSingleThreadExecutor()
     private val gson = Gson()
 
-    private val poseLandmarkerHelper = PoseLandmarkerHelper(
+    private var poseLandmarkerHelper = PoseLandmarkerHelper(
         context = activity,
         runningMode = com.google.mediapipe.tasks.vision.core.RunningMode.LIVE_STREAM,
         poseLandmarkerHelperListener = this
     )
+    fun setConfig(delegate: Int, model: Int) {
+        // Dispose the old helper
+        poseLandmarkerHelper.clearPoseLandmarker()
+    
+        // Create a new one with updated config
+        poseLandmarkerHelper = PoseLandmarkerHelper(
+            context = activity,
+            runningMode = com.google.mediapipe.tasks.vision.core.RunningMode.LIVE_STREAM,
+            poseLandmarkerHelperListener = this,
+            currentDelegate = delegate,
+            currentModel = model
+        )
+    }
 
-    fun startCamera(lensFacing: Int = CameraSelector.LENS_FACING_BACK) {
+    fun switchCamera() {
+    currentLensFacing = if (currentLensFacing == CameraSelector.LENS_FACING_BACK) {
+        CameraSelector.LENS_FACING_FRONT
+    } else {
+        CameraSelector.LENS_FACING_BACK
+    }
+    startCamera() // restart camera pipeline with new lens
+}
+
+    fun startCamera() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(activity)
         cameraProviderFuture.addListener({
             try {
                 
                 val cameraProvider = cameraProviderFuture.get()
+
+                
 
                 // Create a resolution selector targeting 640x480 with 4:3 aspect ratio
                 val resolutionSelector = ResolutionSelector.Builder()
@@ -86,9 +111,26 @@ class CameraManager(private val activity: Activity) : PoseLandmarkerHelper.Landm
                     .setResolutionSelector(resolutionSelector)
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build()
-
+                    if (isAnalysisEnabled) {
+                        imageAnalysis.setAnalyzer(executor) { imageProxy ->
+                            if (!isAnalysisEnabled) {
+                                imageProxy.close()
+                                return@setAnalyzer
+                            }
+                            try {
+                                poseLandmarkerHelper.detectLiveStream(
+                                    imageProxy,
+                                    isFrontCamera = (currentLensFacing == CameraSelector.LENS_FACING_FRONT)
+                                )
+                            } catch (e: Exception) {
+                                Log.e("CameraManager", "Error during analysis", e)
+                                imageProxy.close()
+                            }
+                        }
+                    }
+                    
                 val cameraSelector = CameraSelector.Builder()
-                    .requireLensFacing(lensFacing)
+                    .requireLensFacing(currentLensFacing)
                     .build()
 
                 cameraProvider.unbindAll()
