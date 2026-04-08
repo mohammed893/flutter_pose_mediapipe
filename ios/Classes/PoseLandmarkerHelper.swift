@@ -18,7 +18,7 @@ class PoseLandmarkerHelper: NSObject {
 
     // MARK: - Properties
     private var poseLandmarker: PoseLandmarker?
-    private let context: Bundle
+    private var context: Bundle
 
     var minPoseDetectionConfidence: Float
     var minPoseTrackingConfidence: Float
