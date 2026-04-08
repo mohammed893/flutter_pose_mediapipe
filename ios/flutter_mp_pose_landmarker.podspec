@@ -20,8 +20,9 @@ with native CameraX (Android) and AVFoundation (iOS) integration.
 
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
-    'FRAMEWORK_SEARCH_PATHS' => '$(inherited) "$(PODS_CONFIGURATION_BUILD_DIR)/MediaPipeTasksVision" "$(PODS_CONFIGURATION_BUILD_DIR)/MediaPipeTasksCommon"',
-    'SWIFT_INCLUDE_PATHS' => '$(inherited) "$(PODS_CONFIGURATION_BUILD_DIR)/MediaPipeTasksVision" "$(PODS_CONFIGURATION_BUILD_DIR)/MediaPipeTasksCommon"'
+    'FRAMEWORK_SEARCH_PATHS' => '$(inherited) "$(PODS_CONFIGURATION_BUILD_DIR)/MediaPipeTasksVision" "$(PODS_CONFIGURATION_BUILD_DIR)/MediaPipeTasksCommon" "$(PODS_XCFRAMEWORKS_BUILD_DIR)/MediaPipeTasksVision" "$(PODS_XCFRAMEWORKS_BUILD_DIR)/MediaPipeTasksCommon"',
+    'HEADER_SEARCH_PATHS' => '$(inherited) "$(PODS_XCFRAMEWORKS_BUILD_DIR)/MediaPipeTasksVision/MediaPipeTasksVision.framework/Headers" "$(PODS_XCFRAMEWORKS_BUILD_DIR)/MediaPipeTasksCommon/MediaPipeTasksCommon.framework/Headers"',
+    'SWIFT_INCLUDE_PATHS' => '$(inherited) "$(PODS_XCFRAMEWORKS_BUILD_DIR)/MediaPipeTasksVision" "$(PODS_XCFRAMEWORKS_BUILD_DIR)/MediaPipeTasksCommon"'
   }
   s.swift_version = '5.0'
 
