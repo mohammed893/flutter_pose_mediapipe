@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_mp_pose_landmarker/flutter_mp_pose_landmarker.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 Future<void> ensureCameraPermission() async {
-  var status = await Permission.camera.status;
-  if (!status.isGranted) {
-    await Permission.camera.request();
+  final granted = await PoseLandmarker.checkCameraPermission();
+  if (!granted) {
+    await PoseLandmarker.requestCameraPermission();
   }
 }
 
@@ -299,12 +299,26 @@ class NativeCameraPreview extends StatelessWidget {
   const NativeCameraPreview({super.key});
   @override
   Widget build(BuildContext context) {
-    return const SizedBox.expand(
-      child: AndroidView(
-        viewType: 'camera_preview_view',
-        layoutDirection: TextDirection.ltr,
-      ),
-    );
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return const SizedBox.expand(
+          child: AndroidView(
+            viewType: 'camera_preview_view',
+            layoutDirection: TextDirection.ltr,
+          ),
+        );
+      case TargetPlatform.iOS:
+        return const SizedBox.expand(
+          child: UiKitView(
+            viewType: 'camera_preview_view',
+            layoutDirection: TextDirection.ltr,
+          ),
+        );
+      default:
+        return const Center(
+          child: Text('Native camera preview is only supported on Android and iOS.'),
+        );
+    }
   }
 }
 
@@ -359,6 +373,6 @@ class LandmarkPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant LandmarkPainter old) =>
-      old.landmarks != landmarks;
+  bool shouldRepaint(covariant LandmarkPainter oldDelegate) =>
+      oldDelegate.landmarks != landmarks;
 }
