@@ -128,7 +128,11 @@ class CameraManager: NSObject, PoseLandmarkerHelperDelegate {
         // let the preview layer handle mirroring. Landmarks stay in raw space.
         if let connection = videoOutput?.connection(with: .video) {
             connection.isVideoMirrored = false
-            connection.videoRotationAngle = 90 // portrait orientation
+            if #available(iOS 17.0, *) {
+                connection.videoRotationAngle = 90
+            } else if connection.isVideoOrientationSupported {
+                connection.videoOrientation = .portrait
+            }
         }
 
         // Track whether the preview layer will mirror (front camera only)
