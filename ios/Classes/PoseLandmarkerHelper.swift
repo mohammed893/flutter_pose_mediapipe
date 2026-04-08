@@ -1,4 +1,5 @@
 import Foundation
+import CoreMedia
 import MediaPipeTasksVision
 
 /// Wraps MediaPipe Pose Landmarker configuration and async detection.

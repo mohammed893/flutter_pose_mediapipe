@@ -1,5 +1,6 @@
 import Flutter
 import UIKit
+import AVFoundation
 
 /// Flutter plugin for MediaPipe Pose Landmarker on iOS.
 /// Mirrors the Android `FlutterMpPoseLandmarkerPlugin.kt`.
