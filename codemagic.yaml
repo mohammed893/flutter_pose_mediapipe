@@ -1,0 +1,27 @@
+workflows:
+  flutter-plugin-ios:
+    name: Build Flutter Plugin Example (iOS)
+
+    environment:
+      flutter: stable
+      xcode: latest
+
+    scripts:
+      - name:  Get Flutter packages (root)
+        script: flutter pub get
+
+      - name:  Get packages for example app
+        script: |
+          cd example
+          flutter pub get
+
+      - name:  Analyze (optional but good)
+        script: flutter analyze
+
+      - name:  Build iOS (no signing)
+        script: |
+          cd example
+          flutter build ios --no-codesign
+
+    artifacts:
+      - example/build/ios/iphoneos/*.app
