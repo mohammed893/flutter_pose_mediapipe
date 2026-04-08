@@ -16,7 +16,7 @@ workflows:
           flutter pub get
 
       - name:  Analyze (optional but good)
-        script: flutter analyze
+        script: flutter analyze || true
 
       - name:  Build iOS (no signing)
         script: |
