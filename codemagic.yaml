@@ -1,27 +1,34 @@
 workflows:
-  flutter-plugin-ios:
+  flutter-plugin-example-ios:
     name: Build Flutter Plugin Example (iOS)
 
     environment:
       flutter: stable
-      xcode: latest
+      xcode: 16.4
+      cocoapods: default
 
     scripts:
-      - name:  Get Flutter packages (root)
+      - name: Get Flutter packages (root)
         script: flutter pub get
 
-      - name:  Get packages for example app
+      - name: Get packages for example app
         script: |
           cd example
           flutter pub get
 
-      - name:  Analyze (optional but good)
+      - name: Analyze package and example
         script: flutter analyze || true
 
-      - name:  Build iOS (no signing)
+      - name: Install CocoaPods for the example app
+        script: |
+          cd example/ios
+          pod install
+
+      - name: Build iOS example app (no signing)
         script: |
           cd example
-          flutter build ios --no-codesign
+          flutter build ios --release --no-codesign
 
     artifacts:
       - example/build/ios/iphoneos/*.app
+      - example/ios/Pods/Target Support Files/**/*.xcconfig
