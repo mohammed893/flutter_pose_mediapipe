@@ -13,6 +13,7 @@ with native CameraX (Android) and AVFoundation (iOS) integration.
   s.source_files     = 'Classes/**/*'
   s.dependency 'Flutter'
   s.dependency 'MediaPipeTasksVision', '~> 0.10.14'
+  s.static_framework = true
 
   s.platform = :ios, '16.0'
   s.ios.deployment_target = '16.0'
