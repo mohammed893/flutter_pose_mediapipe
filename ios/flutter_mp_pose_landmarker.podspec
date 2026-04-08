@@ -18,7 +18,11 @@ with native CameraX (Android) and AVFoundation (iOS) integration.
   s.platform = :ios, '16.0'
   s.ios.deployment_target = '16.0'
 
-  s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
+  s.pod_target_xcconfig = {
+    'DEFINES_MODULE' => 'YES',
+    'FRAMEWORK_SEARCH_PATHS' => '$(inherited) "$(PODS_CONFIGURATION_BUILD_DIR)/MediaPipeTasksVision" "$(PODS_CONFIGURATION_BUILD_DIR)/MediaPipeTasksCommon"',
+    'SWIFT_INCLUDE_PATHS' => '$(inherited) "$(PODS_CONFIGURATION_BUILD_DIR)/MediaPipeTasksVision" "$(PODS_CONFIGURATION_BUILD_DIR)/MediaPipeTasksCommon"'
+  }
   s.swift_version = '5.0'
 
   # MediaPipe model files are bundled with the plugin
