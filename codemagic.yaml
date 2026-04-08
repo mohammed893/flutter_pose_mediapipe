@@ -24,11 +24,21 @@ workflows:
           cd example/ios
           pod install
 
-      - name: Build iOS example app (no signing)
+      - name: Build iOS example app with xcodebuild (no signing)
         script: |
-          cd example
-          flutter build ios --release --no-codesign
+          cd example/ios
+          xcodebuild \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
 
     artifacts:
       - example/build/ios/iphoneos/*.app
+      - example/ios/build/**/*.app
       - example/ios/Pods/Target Support Files/**/*.xcconfig
