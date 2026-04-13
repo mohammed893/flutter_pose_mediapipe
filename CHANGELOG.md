@@ -1,4 +1,13 @@
 # Changelog
+
+## [0.1.6] - 2026-04-13
+### Added
+- Initial iOS support (requires further testing)
+- Hand detection implementation in example app
+
+### Fixed
+- Fixed issue where landmark `visibility` and `presence` defaulted to high values even when landmarks were not detected
+
 ## [0.1.5] - 2026-03-17
 
 ### Fixed
