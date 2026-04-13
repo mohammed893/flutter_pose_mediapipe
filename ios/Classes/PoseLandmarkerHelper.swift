@@ -1,9 +1,10 @@
 import Foundation
+import CoreMedia
 import MediaPipeTasksVision
 
 /// Wraps MediaPipe Pose Landmarker configuration and async detection.
 /// Mirrors the Android `PoseLandmarkerHelper.kt`.
-class PoseLandmarkerHelper {
+class PoseLandmarkerHelper: NSObject {
     // MARK: - Constants (matching Android companion object)
     static let delegateCPU = 0
     static let delegateGPU = 1
@@ -17,7 +18,7 @@ class PoseLandmarkerHelper {
 
     // MARK: - Properties
     private var poseLandmarker: PoseLandmarker?
-    private let context: Bundle
+    private var context: Bundle
 
     var minPoseDetectionConfidence: Float
     var minPoseTrackingConfidence: Float
@@ -37,6 +38,7 @@ class PoseLandmarkerHelper {
         currentDelegate: Int = delegateGPU,
         delegate: PoseLandmarkerHelperDelegate? = nil
     ) {
+        super.init()
         self.minPoseDetectionConfidence = minPoseDetectionConfidence
         self.minPoseTrackingConfidence = minPoseTrackingConfidence
         self.minPosePresenceConfidence = minPosePresenceConfidence
@@ -72,21 +74,16 @@ class PoseLandmarkerHelper {
         }
 
         do {
-            let baseOptions = BaseOptions(modelAssetPath: modelPath)
-
-            switch currentDelegate {
-            case PoseLandmarkerHelper.delegateGPU:
-                baseOptions.delegate = .GPU
-            default:
-                baseOptions.delegate = .CPU
-            }
-
             let options = PoseLandmarkerOptions()
-            options.baseOptions = baseOptions
+            options.baseOptions.modelAssetPath = modelPath
+            options.baseOptions.delegate = currentDelegate == PoseLandmarkerHelper.delegateGPU
+                ? Delegate.GPU
+                : Delegate.CPU
             options.runningMode = .liveStream
             options.minPoseDetectionConfidence = minPoseDetectionConfidence
             options.minTrackingConfidence = minPoseTrackingConfidence
             options.minPosePresenceConfidence = minPosePresenceConfidence
+            options.numPoses = 1
             options.poseLandmarkerLiveStreamDelegate = self
 
             poseLandmarker = try PoseLandmarker(options: options)
@@ -96,14 +93,14 @@ class PoseLandmarkerHelper {
                 print("[PoseLandmarkerHelper] GPU delegate failed, falling back to CPU: \(error.localizedDescription)")
                 currentDelegate = PoseLandmarkerHelper.delegateCPU
                 do {
-                    let cpuBaseOptions = BaseOptions(modelAssetPath: modelPath)
-                    cpuBaseOptions.delegate = .CPU
                     let cpuOptions = PoseLandmarkerOptions()
-                    cpuOptions.baseOptions = cpuBaseOptions
+                    cpuOptions.baseOptions.modelAssetPath = modelPath
+                    cpuOptions.baseOptions.delegate = Delegate.CPU
                     cpuOptions.runningMode = .liveStream
                     cpuOptions.minPoseDetectionConfidence = minPoseDetectionConfidence
                     cpuOptions.minTrackingConfidence = minPoseTrackingConfidence
                     cpuOptions.minPosePresenceConfidence = minPosePresenceConfidence
+                    cpuOptions.numPoses = 1
                     cpuOptions.poseLandmarkerLiveStreamDelegate = self
                     poseLandmarker = try PoseLandmarker(options: cpuOptions)
                     print("[PoseLandmarkerHelper] Successfully fell back to CPU delegate")

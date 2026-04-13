@@ -1,5 +1,6 @@
 import Flutter
 import UIKit
+import AVFoundation
 
 /// Flutter plugin for MediaPipe Pose Landmarker on iOS.
 /// Mirrors the Android `FlutterMpPoseLandmarkerPlugin.kt`.
@@ -35,7 +36,7 @@ public class FlutterMpPoseLandmarkerPlugin: NSObject, FlutterPlugin, FlutterStre
             name: "pose_landmarker/methods",
             binaryMessenger: registrar.messenger()
         )
-        methodChannel.setMethodCallHandler(instance.handleMethodCall)
+        methodChannel.setMethodCallHandler(instance.handle)
         instance.methodChannel = methodChannel
 
         // Create camera manager
@@ -49,7 +50,7 @@ public class FlutterMpPoseLandmarkerPlugin: NSObject, FlutterPlugin, FlutterStre
 
     // MARK: - MethodChannel Handler
 
-    private func handleMethodCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         let args = call.arguments as? [String: Any]
 
         switch call.method {

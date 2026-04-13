@@ -288,8 +288,10 @@ class CameraManager(private val activity: Activity) : PoseLandmarkerHelper.Landm
             if (poseLandmarkerResult != null) {
                 val landmarks = poseLandmarkerResult.landmarks().flatMap { landmarkList ->
                 landmarkList.map { landmark ->
-                    val vis = try { landmark.visibility().orElse(1.0f) } catch (_: Exception) { 1.0f }
-                    val pres = try { landmark.presence().orElse(1.0f) } catch (_: Exception) { 1.0f }
+                    // Use presence as the primary confidence metric (0.0-1.0)
+                    // Default to 0.0 if not available, not 1.0
+                    val pres = try { landmark.presence().orElse(0.0f) } catch (_: Exception) { 0.0f }
+                    val vis = try { landmark.visibility().orElse(0.0f) } catch (_: Exception) { 0.0f }
                     Landmark(
                         x = landmark.x(),
                         y = landmark.y(),
@@ -302,8 +304,8 @@ class CameraManager(private val activity: Activity) : PoseLandmarkerHelper.Landm
 
             val worldLandmarks = poseLandmarkerResult.worldLandmarks().flatMap { landmarkList ->
                 landmarkList.map { landmark ->
-                    val vis = try { landmark.visibility().orElse(1.0f) } catch (_: Exception) { 1.0f }
-                    val pres = try { landmark.presence().orElse(1.0f) } catch (_: Exception) { 1.0f }
+                    val pres = try { landmark.presence().orElse(0.0f) } catch (_: Exception) { 0.0f }
+                    val vis = try { landmark.visibility().orElse(0.0f) } catch (_: Exception) { 0.0f }
                     WorldLandmark(
                         x = landmark.x(),
                         y = landmark.y(),
