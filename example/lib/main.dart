@@ -40,9 +40,13 @@ class _PoseLandmarkerViewState extends State<PoseLandmarkerView> {
 
   double _minPoseDetectionConfidence = 0.5;
   double _minPoseTrackingConfidence = 0.5;
-  double _minPosePresenceConfidence = 0.5;
+  double _minPosePresenceConfidence = 0.9;
 
   List<PoseLandmarkPoint> _landmarks = [];
+  
+  // Hand detection states
+  bool _leftHandDetected = false;
+  bool _rightHandDetected = false;
 
   // Nullable so dispose() is safe even if stream never started
   StreamSubscription<PoseLandMarker>? _poseSubscription;
@@ -58,6 +62,47 @@ class _PoseLandmarkerViewState extends State<PoseLandmarkerView> {
   final _detectionController = TextEditingController();
   final _trackingController = TextEditingController();
   final _presenceController = TextEditingController();
+
+  /// Detects if hands are visible based on wrist and finger landmarks.
+  /// In MediaPipe pose: 
+  /// - Left wrist: 15, Left fingers: 17-21
+  /// - Right wrist: 16, Right fingers: 22-26
+  /// Uses 'presence' confidence score which is more reliable than visibility
+  void _detectHands(List<PoseLandmarkPoint> landmarks) {
+    const double handPresenceThreshold = 0.3; // More conservative threshold
+    
+    bool leftHandDetected = false;
+    bool rightHandDetected = false;
+    
+    if (landmarks.length > 26) {
+      // Check left hand (wrist 15 + fingers 17-21)
+      double leftHandPresence = 0;
+      for (int i in [15, 17, 18, 19, 20, 21]) {
+        leftHandPresence += landmarks[i].presence;
+      }
+      double leftAvg = leftHandPresence / 6;
+      leftHandDetected = leftAvg >= handPresenceThreshold;
+      
+      // Check right hand (wrist 16 + fingers 22-26)
+      double rightHandPresence = 0;
+      for (int i in [16, 22, 23, 24, 25, 26]) {
+        rightHandPresence += landmarks[i].presence;
+      }
+      double rightAvg = rightHandPresence / 6;
+      rightHandDetected = rightAvg >= handPresenceThreshold;
+      
+      if (_loggingEnabled) {
+        debugPrint('Hand detection - Left: $leftAvg, Right: $rightAvg');
+      }
+    }
+    
+    if (_leftHandDetected != leftHandDetected || _rightHandDetected != rightHandDetected) {
+      setState(() {
+        _leftHandDetected = leftHandDetected;
+        _rightHandDetected = rightHandDetected;
+      });
+    }
+  }
 
   @override
   void initState() {
@@ -82,6 +127,9 @@ class _PoseLandmarkerViewState extends State<PoseLandmarkerView> {
       if (_detectionPaused || !mounted) return;
       setState(() {
         _landmarks = pose.landmarks;
+        if (_landmarks.isNotEmpty) {
+          print("Visibility: ${_landmarks[26].visibility ?? 'No'}");
+        }
         _frameCount++;
         final now = DateTime.now().millisecondsSinceEpoch;
         if (now - _lastTimestamp >= 1000) {
@@ -90,8 +138,8 @@ class _PoseLandmarkerViewState extends State<PoseLandmarkerView> {
           _lastTimestamp = now;
           if (_loggingEnabled) debugPrint('FPS: $_fps');
         }
-      });
-    });
+      });      // Detect hands from landmarks
+      _detectHands(pose.landmarks);    });
   }
 
   void _switchCamera() {
@@ -208,6 +256,10 @@ class _PoseLandmarkerViewState extends State<PoseLandmarkerView> {
                 _StatChip('Camera: $_cameraLens'),
                 const SizedBox(height: 4),
                 _StatChip('FPS: $_fps'),
+                const SizedBox(height: 4),
+                _StatChip(
+                  'Hands: ${_leftHandDetected ? '👋L' : 'L'} ${_rightHandDetected ? '👋R' : 'R'}',
+                ),
               ],
             ),
           ),
