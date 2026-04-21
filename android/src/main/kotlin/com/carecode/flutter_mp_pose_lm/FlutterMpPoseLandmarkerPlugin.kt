@@ -34,6 +34,8 @@ class FlutterMpPoseLandmarkerPlugin : FlutterPlugin, EventChannel.StreamHandler,
     private var isLoggingEnabled: Boolean = false
     private var pendingPermissionResult: MethodChannel.Result? = null
     private val CAMERA_PERMISSION_REQUEST_CODE = 9876
+    private var isCameraReady = false
+    private var pendingAnalysisEnable = false
 
     override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         Log.d("PoseLandmarkerPlugin", "onAttachedToEngine called")

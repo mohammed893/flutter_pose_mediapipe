@@ -233,17 +233,15 @@ class CameraManager(private val activity: Activity) : PoseLandmarkerHelper.Landm
             // ----- FPS calculation -----
             val currentTime = SystemClock.elapsedRealtime()
             val deltaTime = currentTime - lastFrameTime
+
             if (deltaTime > 0) {
                 fps = 1000.0 / deltaTime
             }
             lastFrameTime = currentTime
             // ---------------------------
 
-            val helper = poseLandmarkerHelper
-            if (helper == null) {
-                imageProxy.close()
-                return@setAnalyzer
-            }
+            val helper = ensureHelper()
+
 
             try {
                 helper.detectLiveStream(
