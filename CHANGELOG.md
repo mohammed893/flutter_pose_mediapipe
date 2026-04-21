@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.1.7] - 2026-04-21
+### Improvements
+- Improved camera stream stability with safer helper initialization.
+- Added frame timestamp validation to prevent duplicate/out-of-order processing.
+- Introduced camera state flags for better lifecycle handling.
+
+### Pose Processing
+- Fixed live stream inference timing using `imageProxy` timestamps.
+- Reduced MediaPipe warnings by filtering invalid frames.
+- Improved GPU → CPU fallback handling and logging.
+
+### Image Processing
+- Made YUV → RGB conversion thread-safe.
+- Fixed NV21 conversion (correct stride/pixel handling).
+- Added strict bitmap validation (size, config, and recycling checks).
+
+### Stability
+- Ensured `imageProxy.close()` is always called to avoid pipeline blocking.
+- Reduced race conditions in live stream processing.
+
+### Cleanup
+- Refactored helper initialization and removed redundant null checks.
+- Simplified bitmap rotation and MediaPipe pipeline setup.
+
+
+
 ## [0.1.6] - 2026-04-13
 ### Added
 - Initial iOS support (requires further testing)

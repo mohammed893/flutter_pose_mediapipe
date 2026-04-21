@@ -1,6 +1,6 @@
 name: flutter_mp_pose_landmarker
 description: "A Flutter plugin for real-time pose detection using MediaPipe and native CameraX."
-version: 0.1.6
+version: 0.1.7
 homepage: https://github.com/mohammed893/flutter_pose_mediapipe/tree/main
 repository: https://github.com/mohammed893/flutter_pose_mediapipe
 issue_tracker: https://github.com/mohammed893/flutter_pose_mediapipe/issues
