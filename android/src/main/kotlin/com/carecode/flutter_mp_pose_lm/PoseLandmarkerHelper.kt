@@ -233,7 +233,8 @@ class PoseLandmarkerHelper(
             return
         }
 
-        val frameTime = imageProxy.imageInfo.timestamp
+        val frameTime = SystemClock.uptimeMillis()
+
 
         // Drop duplicate / out-of-order frames to prevent MediaPipe filter warning
         if (frameTime <= lastDetectedTimestamp) {
