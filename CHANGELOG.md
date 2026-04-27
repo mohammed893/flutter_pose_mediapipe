@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.8] - 2026-04-27
+### Fix
+- use uptimeMillis() instead of imageProxy timestamp to prevent duplicate timestamps
+
+
+
 ## [0.1.7] - 2026-04-21
 ### Improvements
 - Improved camera stream stability with safer helper initialization.
