@@ -48,22 +48,22 @@ android {
     defaultConfig {
         minSdk = 24
     }
+    def camerax_version = "1.4.2"
+
 
     dependencies {
         testImplementation("org.jetbrains.kotlin:kotlin-test")
         testImplementation("org.mockito:mockito-core:5.0.0")
-        implementation 'androidx.camera:camera-core:1.2.3'
-        implementation 'androidx.camera:camera-camera2:1.2.3'
-        implementation 'androidx.camera:camera-lifecycle:1.2.3'
-        implementation 'androidx.camera:camera-view:1.2.3'
-        implementation "androidx.camera:camera-extensions:1.3.2"
+        implementation "androidx.camera:camera-core:$camerax_version"
+        implementation "androidx.camera:camera-camera2:$camerax_version"
+        implementation "androidx.camera:camera-lifecycle:$camerax_version"
+        implementation "androidx.camera:camera-view:$camerax_version"
+        implementation "androidx.camera:camera-extensions:$camerax_version"
         implementation 'com.google.android.material:material:1.10.0' // or latest stable
-        implementation 'com.google.mediapipe:tasks-vision:0.10.29' // x86/x86_64 support added in 0.10.29
+        implementation 'com.google.mediapipe:tasks-vision:0.10.29' // Compatible with Android API 21+, no aligned_alloc dependency
         def nav_version = "2.7.7"
         implementation "androidx.navigation:navigation-fragment-ktx:$nav_version"
         implementation "androidx.navigation:navigation-ui-ktx:$nav_version"
-        implementation 'org.tensorflow:tensorflow-lite:2.11.0' // If used
-        implementation 'org.tensorflow:tensorflow-lite-gpu:2.11.0' // If used
         implementation 'com.google.code.gson:gson:2.10.1'
         // Kotlin standard library if needed
         implementation "org.jetbrains.kotlin:kotlin-stdlib:1.8.0"
