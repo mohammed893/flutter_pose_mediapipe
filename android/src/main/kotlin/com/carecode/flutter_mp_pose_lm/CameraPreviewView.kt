@@ -15,30 +15,32 @@ class CameraPreview(private val activity: Activity) : PlatformView {
     private var cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
     init {
+        previewView.layoutParams = android.view.ViewGroup.LayoutParams(
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT
+        )
         startCamera()
     }
 
     private fun startCamera() {
-        val cameraProviderFuture = ProcessCameraProvider.getInstance(activity)
-
-        cameraProviderFuture.addListener({
-            val cameraProvider = cameraProviderFuture.get()
-
-            val preview = Preview.Builder().build()
-            preview.setSurfaceProvider(previewView.surfaceProvider)
-
-            try {
-                cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(
-                    activity as androidx.lifecycle.LifecycleOwner,
-                    cameraSelector,
-                    preview
-                )
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-
-        }, ContextCompat.getMainExecutor(activity))
+        previewView.post {
+            val cameraProviderFuture = ProcessCameraProvider.getInstance(activity)
+            cameraProviderFuture.addListener({
+                val cameraProvider = cameraProviderFuture.get()
+                val preview = Preview.Builder().build()
+                preview.setSurfaceProvider(previewView.surfaceProvider)
+                try {
+                    cameraProvider.unbindAll()
+                    cameraProvider.bindToLifecycle(
+                        activity as androidx.lifecycle.LifecycleOwner,
+                        cameraSelector,
+                        preview
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }, ContextCompat.getMainExecutor(activity))
+        }
     }
 
     fun switchCamera() {
@@ -52,5 +54,15 @@ class CameraPreview(private val activity: Activity) : PlatformView {
     }
 
     override fun getView(): View = previewView
-    override fun dispose() {}
+
+    override fun dispose() {
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(activity)
+        cameraProviderFuture.addListener({
+            try {
+                cameraProviderFuture.get().unbindAll()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }, ContextCompat.getMainExecutor(activity))
+    }
 }

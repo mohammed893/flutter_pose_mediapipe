@@ -56,13 +56,17 @@ class FlutterMpPoseLandmarkerPlugin : FlutterPlugin, EventChannel.StreamHandler,
                         ?: PoseLandmarkerHelper.DEFAULT_POSE_TRACKING_CONFIDENCE
                     val minPosePresenceConfidence = call.argument<Double>("minPosePresenceConfidence")?.toFloat()
                         ?: PoseLandmarkerHelper.DEFAULT_POSE_PRESENCE_CONFIDENCE
+                    val analysisWidth = call.argument<Int>("analysisWidth") ?: 640
+                    val analysisHeight = call.argument<Int>("analysisHeight") ?: 480
 
                     // Only CameraManager supports setConfig — no-op on emulator
                     (poseManager as? CameraManager)?.setConfig(
                         delegate, model,
                         minPoseDetectionConfidence,
                         minPoseTrackingConfidence,
-                        minPosePresenceConfidence
+                        minPosePresenceConfidence,
+                        analysisWidth,
+                        analysisHeight
                     )
                     result.success(null)
                 }

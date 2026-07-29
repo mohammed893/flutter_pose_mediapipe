@@ -59,7 +59,7 @@ android {
         implementation "androidx.camera:camera-lifecycle:$camerax_version"
         implementation "androidx.camera:camera-view:$camerax_version"
         implementation "androidx.camera:camera-extensions:$camerax_version"
-        implementation 'com.google.android.material:material:1.10.0' // or latest stable
+        implementation 'com.google.android.material:material:1.10.0' 
         implementation 'com.google.mediapipe:tasks-vision:0.10.29' // Compatible with Android API 21+, no aligned_alloc dependency
         def nav_version = "2.7.7"
         implementation "androidx.navigation:navigation-fragment-ktx:$nav_version"
@@ -67,6 +67,7 @@ android {
         implementation 'com.google.code.gson:gson:2.10.1'
         // Kotlin standard library if needed
         implementation "org.jetbrains.kotlin:kotlin-stdlib:1.8.0"
+        implementation "androidx.camera:camera-camera2:$camerax_version"  
     }
 
     testOptions {

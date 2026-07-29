@@ -1,10 +1,13 @@
 package com.carecode.flutter_mp_pose_lm
 
 import android.app.Activity
+import android.hardware.camera2.CaptureRequest
 import android.os.SystemClock
 import android.util.Log
+import android.util.Range
 import android.util.Size
 import android.widget.FrameLayout
+import androidx.camera.camera2.interop.Camera2Interop
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -22,7 +25,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicReference
 
 
-class CameraManager(private val activity: Activity) : PoseLandmarkerHelper.LandmarkerListener, IPoseManager{
+class CameraManager(private val activity: Activity) : PoseLandmarkerHelper.LandmarkerListener, IPoseManager {
 
     data class Landmark(
         val x: Float,
@@ -57,6 +60,8 @@ class CameraManager(private val activity: Activity) : PoseLandmarkerHelper.Landm
     private val eventSink = AtomicReference<EventChannel.EventSink?>(null)
     private lateinit var imageAnalysis: ImageAnalysis
     private var isAnalysisEnabled = false
+    private var analysisTargetSize: Size = Size(640, 480)
+    private var targetFps: Int = 15
     private val executor = Executors.newSingleThreadExecutor()
     private val gson = Gson()
 
@@ -90,9 +95,23 @@ class CameraManager(private val activity: Activity) : PoseLandmarkerHelper.Landm
         model: Int,
         minPoseDetectionConfidence: Float = PoseLandmarkerHelper.DEFAULT_POSE_DETECTION_CONFIDENCE,
         minPoseTrackingConfidence: Float = PoseLandmarkerHelper.DEFAULT_POSE_TRACKING_CONFIDENCE,
-        minPosePresenceConfidence: Float = PoseLandmarkerHelper.DEFAULT_POSE_PRESENCE_CONFIDENCE
+        minPosePresenceConfidence: Float = PoseLandmarkerHelper.DEFAULT_POSE_PRESENCE_CONFIDENCE,
+        analysisWidth: Int = 640,
+        analysisHeight: Int = 480,
+        fps: Int = 15
     ) {
-        Log.d("CameraManager", "setConfig: delegate=$delegate, model=$model")
+        val newSize = Size(analysisWidth, analysisHeight)
+        val sizeChanged = newSize != analysisTargetSize
+        analysisTargetSize = newSize
+
+        val fpsChanged = fps != targetFps
+        targetFps = fps
+
+        Log.d(
+            "CameraManager",
+            "setConfig: delegate=$delegate, model=$model, analysisSize=$analysisTargetSize, fps=$targetFps"
+        )
+
         // Dispose old helper if it exists
         poseLandmarkerHelper?.clearPoseLandmarker()
 
@@ -108,6 +127,12 @@ class CameraManager(private val activity: Activity) : PoseLandmarkerHelper.Landm
             minPosePresenceConfidence = minPosePresenceConfidence
         )
         Log.d("CameraManager", "setConfig: PoseLandmarkerHelper created successfully")
+
+        // Rebind camera to pick up the new analysis resolution/fps, if either
+        // changed and the camera is already running.
+        if ((sizeChanged || fpsChanged) && ::imageAnalysis.isInitialized) {
+            startCamera()
+        }
     }
 
     fun switchCamera() {
@@ -129,51 +154,74 @@ class CameraManager(private val activity: Activity) : PoseLandmarkerHelper.Landm
 
     fun startCamera() {
         Log.d("CameraManager", "startCamera() called, lensFacing=$currentLensFacing, analysisEnabled=$isAnalysisEnabled")
+        Log.d("CameraManager", "Activity: ${activity.javaClass.simpleName}, API Level: ${android.os.Build.VERSION.SDK_INT}")
         val cameraProviderFuture = ProcessCameraProvider.getInstance(activity)
+        Log.d("CameraManager", "ProcessCameraProvider.getInstance() called")
         cameraProviderFuture.addListener({
             Log.d("CameraManager", "CameraProvider ready, binding to lifecycle")
             try {
+                Log.d("CameraManager", "Getting cameraProvider from future...")
                 val cameraProvider = cameraProviderFuture.get()
+                Log.d("CameraManager", "CameraProvider obtained successfully")
 
-                val resolutionSelector = ResolutionSelector.Builder()
-                    .setAspectRatioStrategy(
-                        AspectRatioStrategy(
-                            AspectRatio.RATIO_4_3,
-                            AspectRatioStrategy.FALLBACK_RULE_AUTO
-                        )
-                    )
-                    .setResolutionStrategy(
-                        ResolutionStrategy(
-                            Size(640, 480),
-                            ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
-                        )
-                    )
+                Log.d("CameraManager", "Building resolution selectors...")
+                // Preview can stay higher-res for a nice UI
+                val previewResolutionSelector = ResolutionSelector.Builder()
+                    .setAspectRatioStrategy(AspectRatioStrategy(AspectRatio.RATIO_4_3, AspectRatioStrategy.FALLBACK_RULE_AUTO))
+                    .setResolutionStrategy(ResolutionStrategy(Size(640, 480), ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER))
                     .build()
 
+                // Analysis can go lower — this is what actually costs CPU/GPU time
+                val analysisResolutionSelector = ResolutionSelector.Builder()
+                    .setAspectRatioStrategy(AspectRatioStrategy(AspectRatio.RATIO_4_3, AspectRatioStrategy.FALLBACK_RULE_AUTO))
+                    .setResolutionStrategy(ResolutionStrategy(analysisTargetSize, ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER))
+                    .build()
+
+                Log.d("CameraManager", "Building preview...")
                 val preview = Preview.Builder()
-                    .setResolutionSelector(resolutionSelector)
+                    .setResolutionSelector(previewResolutionSelector)
                     .build()
-                    .also {
-                        it.setSurfaceProvider(previewView.surfaceProvider)
-                    }
+                    .also { it.setSurfaceProvider(previewView.surfaceProvider) }
+                Log.d("CameraManager", "Preview built successfully")
 
-                imageAnalysis = ImageAnalysis.Builder()
-                    .setResolutionSelector(resolutionSelector)
+                Log.d("CameraManager", "Building image analysis with FPS cap=$targetFps...")
+                val analysisBuilder = ImageAnalysis.Builder()
+                    .setResolutionSelector(analysisResolutionSelector)
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                    .build()
+
+                // Cap capture rate to reduce heat generated upstream of inference.
+                // NOTE: this affects the whole capture session (preview included),
+                // since preview + analysis share one session here. Not all devices
+                // honor the exact range — some snap to the nearest supported one.
+                Camera2Interop.Extender(analysisBuilder)
+                    .setCaptureRequestOption(
+                        CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
+                        Range(targetFps, targetFps)
+                    )
+
+                imageAnalysis = analysisBuilder.build()
+                Log.d("CameraManager", "Image analysis built successfully with FPS cap=$targetFps")
 
                 if (isAnalysisEnabled) {
+                    Log.d("CameraManager", "Analysis is enabled, attaching analyzer...")
                     attachAnalyzer()
+                    Log.d("CameraManager", "Analyzer attached")
+                } else {
+                    Log.d("CameraManager", "Analysis is disabled, skipping analyzer attachment")
                 }
 
+                Log.d("CameraManager", "Unbinding all existing camera bindings...")
                 cameraProvider.unbindAll()
+                Log.d("CameraManager", "All bindings unbound")
 
                 // Try the requested lens facing first; if it fails (e.g. emulator
                 // cameras report null lensFacing), fall back to any available camera.
                 try {
+                    Log.d("CameraManager", "Attempting to bind camera with preferred lensFacing=$currentLensFacing")
                     val preferred = CameraSelector.Builder()
                         .requireLensFacing(currentLensFacing)
                         .build()
+                    Log.d("CameraManager", "CameraSelector built successfully")
                     cameraProvider.bindToLifecycle(
                         activity as LifecycleOwner,
                         preferred,
@@ -183,7 +231,8 @@ class CameraManager(private val activity: Activity) : PoseLandmarkerHelper.Landm
                     previewIsMirrored = (currentLensFacing == CameraSelector.LENS_FACING_FRONT)
                     Log.d("CameraManager", "Camera bound with lensFacing=$currentLensFacing, mirrored=$previewIsMirrored")
                 } catch (e: Exception) {
-                    Log.w("CameraManager", "Preferred lensFacing=$currentLensFacing failed: ${e.message}")
+                    Log.w("CameraManager", "Preferred lensFacing=$currentLensFacing failed: ${e.message}", e)
+                    Log.w("CameraManager", "Trying fallback CameraSelector (any available)")
                     val fallback = CameraSelector.Builder().build()
                     cameraProvider.bindToLifecycle(
                         activity as LifecycleOwner,
@@ -195,7 +244,7 @@ class CameraManager(private val activity: Activity) : PoseLandmarkerHelper.Landm
                     Log.d("CameraManager", "Camera bound with fallback (any available), mirrored=false")
                 }
             } catch (e: Exception) {
-                Log.e("CameraManager", "Camera bind failed", e)
+                Log.e("CameraManager", "Camera bind failed with exception", e)
                 activity.runOnUiThread {
                     eventSink.get()?.error("CAMERA_ERROR", "Failed to start camera: ${e.message}", null)
                 }
@@ -224,35 +273,52 @@ class CameraManager(private val activity: Activity) : PoseLandmarkerHelper.Landm
     }
 
     private fun attachAnalyzer() {
+        Log.d("CameraManager", "attachAnalyzer() called")
         imageAnalysis.setAnalyzer(executor) { imageProxy ->
             if (!isAnalysisEnabled) {
+                Log.v("CameraManager", "Analysis disabled, dropping frame")
                 imageProxy.close()
                 return@setAnalyzer
             }
 
-            // ----- FPS calculation -----
-            val currentTime = SystemClock.elapsedRealtime()
-            val deltaTime = currentTime - lastFrameTime
-
-            if (deltaTime > 0) {
-                fps = 1000.0 / deltaTime
-            }
-            lastFrameTime = currentTime
-            // ---------------------------
-
-            val helper = ensureHelper()
-
-
             try {
-                helper.detectLiveStream(
-                    imageProxy,
-                    isFrontCamera = (currentLensFacing == CameraSelector.LENS_FACING_FRONT)
+                // ----- FPS calculation -----
+                val currentTime = SystemClock.elapsedRealtime()
+                val deltaTime = currentTime - lastFrameTime
+
+                if (deltaTime > 0) {
+                    fps = 1000.0 / deltaTime
+                }
+                lastFrameTime = currentTime
+                // ---------------------------
+
+                Log.v(
+                    "CameraManager",
+                    "Processing frame: width=${imageProxy.width}, height=${imageProxy.height}, format=${imageProxy.format}, fps=$fps"
                 )
+                val helper = ensureHelper()
+                Log.v("CameraManager", "PoseLandmarkerHelper obtained")
+
+                try {
+                    helper.detectLiveStream(
+                        imageProxy,
+                        isFrontCamera = (currentLensFacing == CameraSelector.LENS_FACING_FRONT)
+                    )
+                    Log.v("CameraManager", "Frame sent to pose detector")
+                } catch (e: Exception) {
+                    Log.e("CameraManager", "Error during analysis in detectLiveStream", e)
+                    imageProxy.close()
+                }
             } catch (e: Exception) {
-                Log.e("CameraManager", "Error during analysis", e)
-                imageProxy.close()
+                Log.e("CameraManager", "Unexpected error in analyzer", e)
+                try {
+                    imageProxy.close()
+                } catch (closeEx: Exception) {
+                    Log.e("CameraManager", "Failed to close imageProxy after error", closeEx)
+                }
             }
         }
+        Log.d("CameraManager", "Analyzer attached successfully")
     }
 
     // -----------------------------
@@ -285,47 +351,47 @@ class CameraManager(private val activity: Activity) : PoseLandmarkerHelper.Landm
             val poseLandmarkerResult = resultBundle.results.firstOrNull()
             if (poseLandmarkerResult != null) {
                 val landmarks = poseLandmarkerResult.landmarks().flatMap { landmarkList ->
-                landmarkList.map { landmark ->
-                    // Use presence as the primary confidence metric (0.0-1.0)
-                    // Default to 0.0 if not available, not 1.0
-                    val pres = try { landmark.presence().orElse(0.0f) } catch (_: Exception) { 0.0f }
-                    val vis = try { landmark.visibility().orElse(0.0f) } catch (_: Exception) { 0.0f }
-                    Landmark(
-                        x = landmark.x(),
-                        y = landmark.y(),
-                        z = landmark.z(),
-                        visibility = vis,
-                        presence = pres
-                    )
+                    landmarkList.map { landmark ->
+                        // Use presence as the primary confidence metric (0.0-1.0)
+                        // Default to 0.0 if not available, not 1.0
+                        val pres = try { landmark.presence().orElse(0.0f) } catch (_: Exception) { 0.0f }
+                        val vis = try { landmark.visibility().orElse(0.0f) } catch (_: Exception) { 0.0f }
+                        Landmark(
+                            x = landmark.x(),
+                            y = landmark.y(),
+                            z = landmark.z(),
+                            visibility = vis,
+                            presence = pres
+                        )
+                    }
+                }
+
+                val worldLandmarks = poseLandmarkerResult.worldLandmarks().flatMap { landmarkList ->
+                    landmarkList.map { landmark ->
+                        val pres = try { landmark.presence().orElse(0.0f) } catch (_: Exception) { 0.0f }
+                        val vis = try { landmark.visibility().orElse(0.0f) } catch (_: Exception) { 0.0f }
+                        WorldLandmark(
+                            x = landmark.x(),
+                            y = landmark.y(),
+                            z = landmark.z(),
+                            visibility = vis,
+                            presence = pres
+                        )
+                    }
+                }
+
+                val resultMap = mapOf(
+                    "timestampMs" to SystemClock.uptimeMillis(),
+                    "landmarks" to landmarks,
+                    "worldLandmarks" to worldLandmarks,
+                    "fps" to fps
+                )
+
+                val json = gson.toJson(resultMap)
+                activity.runOnUiThread {
+                    eventSink.get()?.success(json)
                 }
             }
-
-            val worldLandmarks = poseLandmarkerResult.worldLandmarks().flatMap { landmarkList ->
-                landmarkList.map { landmark ->
-                    val pres = try { landmark.presence().orElse(0.0f) } catch (_: Exception) { 0.0f }
-                    val vis = try { landmark.visibility().orElse(0.0f) } catch (_: Exception) { 0.0f }
-                    WorldLandmark(
-                        x = landmark.x(),
-                        y = landmark.y(),
-                        z = landmark.z(),
-                        visibility = vis,
-                        presence = pres
-                    )
-                }
-            }
-
-            val resultMap = mapOf(
-                "timestampMs" to SystemClock.uptimeMillis(),
-                "landmarks" to landmarks,
-                "worldLandmarks" to worldLandmarks,
-                "fps" to fps
-            )
-
-            val json = gson.toJson(resultMap)
-            activity.runOnUiThread {
-                eventSink.get()?.success(json)
-            }
-        }
         } catch (e: Exception) {
             Log.e("CameraManager", "onResults crashed", e)
         }
@@ -337,12 +403,13 @@ class CameraManager(private val activity: Activity) : PoseLandmarkerHelper.Landm
             eventSink.get()?.error("POSE_ERROR", error, mapOf("code" to errorCode))
         }
     }
-    override  fun releaseCamera(){
-        disableAnalysis();
-        try{
+
+    override fun releaseCamera() {
+        disableAnalysis()
+        try {
             ProcessCameraProvider.getInstance(activity).get().unbindAll()
-        }catch (e:Exception){
-            if(isLoggingEnabled) Log.e("CameraManager", "Failed to release camera provider", e)
+        } catch (e: Exception) {
+            if (isLoggingEnabled) Log.e("CameraManager", "Failed to release camera provider", e)
         }
     }
 }

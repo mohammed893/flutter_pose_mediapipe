@@ -135,6 +135,8 @@ class PoseLandmarker {
     double minPoseDetectionConfidence = 0.5,
     double minPoseTrackingConfidence = 0.5,
     double minPosePresenceConfidence = 0.5,
+    int analysisWidth = 640,
+    int analysisHeight = 480,
   }) async {
     await _channel.invokeMethod("setConfig", {
       "delegate": delegate,
@@ -142,6 +144,8 @@ class PoseLandmarker {
       "minPoseDetectionConfidence": minPoseDetectionConfidence,
       "minPoseTrackingConfidence": minPoseTrackingConfidence,
       "minPosePresenceConfidence": minPosePresenceConfidence,
+      "analysisWidth": analysisWidth,
+      "analysisHeight": analysisHeight,
     });
   }
 

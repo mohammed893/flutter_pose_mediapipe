@@ -34,16 +34,32 @@ class PoseLandmarkerView extends StatefulWidget {
   State<PoseLandmarkerView> createState() => _PoseLandmarkerViewState();
 }
 
+// Preset analysis resolutions — lower = faster, less accurate.
+enum _AnalysisResolution {
+  low(320, 240, 'Low (320x240)'),
+  medium(480, 360, 'Medium (480x360)'),
+  high(640, 480, 'High (640x480)');
+
+  final int width;
+  final int height;
+  final String label;
+  const _AnalysisResolution(this.width, this.height, this.label);
+}
+
 class _PoseLandmarkerViewState extends State<PoseLandmarkerView> {
-  int delegate = 0;
+  int delegate = 1;
   int model = 1;
 
   double _minPoseDetectionConfidence = 0.5;
   double _minPoseTrackingConfidence = 0.5;
   double _minPosePresenceConfidence = 0.9;
 
+  // Analysis resolution — this is what actually drives perf, independent
+  // of what the preview looks like on screen.
+  _AnalysisResolution _analysisResolution = _AnalysisResolution.medium;
+
   List<PoseLandmarkPoint> _landmarks = [];
-  
+
   // Hand detection states
   bool _leftHandDetected = false;
   bool _rightHandDetected = false;
@@ -56,8 +72,7 @@ class _PoseLandmarkerViewState extends State<PoseLandmarkerView> {
   String _cameraLens = 'Back';
 
   int _fps = 0;
-  int _frameCount = 0;
-  int _lastTimestamp = DateTime.now().millisecondsSinceEpoch;
+
 
   final _detectionController = TextEditingController();
   final _trackingController = TextEditingController();
@@ -118,28 +133,26 @@ class _PoseLandmarkerViewState extends State<PoseLandmarkerView> {
       minPoseDetectionConfidence: _minPoseDetectionConfidence,
       minPoseTrackingConfidence: _minPoseTrackingConfidence,
       minPosePresenceConfidence: _minPosePresenceConfidence,
+      analysisWidth: _analysisResolution.width,
+      analysisHeight: _analysisResolution.height,
     );
 
     // Subscribing here triggers onListen in the plugin → startCamera() runs.
     // Cancelling in dispose() triggers onCancel → releaseCamera() runs,
     // freeing the hardware so other packages like camera can use it freely.
-    _poseSubscription = PoseLandmarker.poseLandmarkStream.listen((pose) {
+       _poseSubscription = PoseLandmarker.poseLandmarkStream.listen((pose) {
       if (_detectionPaused || !mounted) return;
       setState(() {
         _landmarks = pose.landmarks;
         if (_landmarks.isNotEmpty) {
           print("Visibility: ${_landmarks[26].visibility ?? 'No'}");
         }
-        _frameCount++;
-        final now = DateTime.now().millisecondsSinceEpoch;
-        if (now - _lastTimestamp >= 1000) {
-          _fps = _frameCount;
-          _frameCount = 0;
-          _lastTimestamp = now;
-          if (_loggingEnabled) debugPrint('FPS: $_fps');
-        }
-      });      // Detect hands from landmarks
-      _detectHands(pose.landmarks);    });
+        _fps = pose.fps!.round(); // ← native FPS from CameraManager, not Flutter-side counting
+        if (_loggingEnabled) debugPrint('FPS: $_fps');
+      });
+      // Detect hands from landmarks
+      _detectHands(pose.landmarks);
+    });
   }
 
   void _switchCamera() {
@@ -177,15 +190,39 @@ class _PoseLandmarkerViewState extends State<PoseLandmarkerView> {
         minPoseDetectionConfidence: _minPoseDetectionConfidence,
         minPoseTrackingConfidence: _minPoseTrackingConfidence,
         minPosePresenceConfidence: _minPosePresenceConfidence,
+        analysisWidth: _analysisResolution.width,
+        analysisHeight: _analysisResolution.height,
       );
 
       if (_loggingEnabled) {
         debugPrint('Confidence updated — '
             'detection: $_minPoseDetectionConfidence, '
             'tracking: $_minPoseTrackingConfidence, '
-            'presence: $_minPosePresenceConfidence');
+            'presence: $_minPosePresenceConfidence, '
+            'analysisRes: ${_analysisResolution.width}x${_analysisResolution.height}');
       }
     });
+  }
+
+  void _onResolutionChanged(_AnalysisResolution? newRes) {
+    if (newRes == null || newRes == _analysisResolution) return;
+    setState(() => _analysisResolution = newRes);
+
+    // Push the new analysis resolution down immediately — no need to wait
+    // for the "Apply" button, since this isn't a text field.
+    PoseLandmarker.setConfig(
+      delegate: delegate,
+      model: model,
+      minPoseDetectionConfidence: _minPoseDetectionConfidence,
+      minPoseTrackingConfidence: _minPoseTrackingConfidence,
+      minPosePresenceConfidence: _minPosePresenceConfidence,
+      analysisWidth: newRes.width,
+      analysisHeight: newRes.height,
+    );
+
+    if (_loggingEnabled) {
+      debugPrint('Analysis resolution changed to ${newRes.width}x${newRes.height}');
+    }
   }
 
   @override
@@ -259,6 +296,26 @@ class _PoseLandmarkerViewState extends State<PoseLandmarkerView> {
                 const SizedBox(height: 4),
                 _StatChip(
                   'Hands: ${_leftHandDetected ? '👋L' : 'L'} ${_rightHandDetected ? '👋R' : 'R'}',
+                ),
+                const SizedBox(height: 4),
+                // Analysis resolution picker — lets you trade perf vs accuracy live.
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  color: Colors.black54,
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<_AnalysisResolution>(
+                      value: _analysisResolution,
+                      dropdownColor: Colors.black87,
+                      style: const TextStyle(color: Colors.white),
+                      onChanged: _onResolutionChanged,
+                      items: _AnalysisResolution.values
+                          .map((res) => DropdownMenuItem(
+                                value: res,
+                                child: Text(res.label),
+                              ))
+                          .toList(),
+                    ),
+                  ),
                 ),
               ],
             ),
