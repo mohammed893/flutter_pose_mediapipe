@@ -345,6 +345,21 @@ class CameraManager(private val activity: Activity) : PoseLandmarkerHelper.Landm
             if (isLoggingEnabled) Log.e("CameraManager", "Failed to unbind camera provider", e)
         }
     }
+    fun resetCamera() {
+            Log.d("CameraManager", "resetCamera() called")
+            val cameraProviderFuture = ProcessCameraProvider.getInstance(activity)
+            cameraProviderFuture.addListener({
+                try {
+                    cameraProviderFuture.get().unbindAll()
+                } catch (e: Exception) {
+                    Log.e("CameraManager", "resetCamera: unbind failed", e)
+                }
+                // Give the previous capture session a moment to actually close
+                // before rebinding — an immediate rebind can grab a still-closing
+                // surface on some devices.
+                previewView.postDelayed({ startCamera() }, 150)
+            }, ContextCompat.getMainExecutor(activity))
+        }
 
     override fun onResults(resultBundle: PoseLandmarkerHelper.ResultBundle) {
         try {

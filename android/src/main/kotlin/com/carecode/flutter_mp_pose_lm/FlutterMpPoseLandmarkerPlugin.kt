@@ -81,6 +81,11 @@ class FlutterMpPoseLandmarkerPlugin : FlutterPlugin, EventChannel.StreamHandler,
                     (poseManager as? CameraManager)?.switchCamera()
                     result.success(null)
                 }
+                
+                "resetCamera" -> {
+                    (poseManager as? CameraManager)?.resetCamera()
+                    result.success(null)
+                }
                 "releaseCamera" -> {
                     poseManager?.releaseCamera()
                     result.success(null)

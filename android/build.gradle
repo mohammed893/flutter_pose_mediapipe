@@ -60,7 +60,7 @@ android {
         implementation "androidx.camera:camera-view:$camerax_version"
         implementation "androidx.camera:camera-extensions:$camerax_version"
         implementation 'com.google.android.material:material:1.10.0' 
-        implementation 'com.google.mediapipe:tasks-vision:0.10.29' // Compatible with Android API 21+, no aligned_alloc dependency
+        implementation 'com.google.mediapipe:tasks-vision:0.10.35' // Compatible with Android API 21+, no aligned_alloc dependency
         def nav_version = "2.7.7"
         implementation "androidx.navigation:navigation-fragment-ktx:$nav_version"
         implementation "androidx.navigation:navigation-ui-ktx:$nav_version"

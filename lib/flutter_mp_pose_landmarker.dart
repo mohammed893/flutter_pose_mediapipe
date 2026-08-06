@@ -160,6 +160,9 @@ class PoseLandmarker {
     return camera ?? "back"; // fallback
   }
 
+  static Future<void> resetCamera() async {
+      await _channel.invokeMethod('resetCamera');
+  }
   /// Enable or disable logging on native side
   static Future<void> setLoggingEnabled(bool enabled) async {
     await _channel.invokeMethod('setLoggingEnabled', {"enabled": enabled});
